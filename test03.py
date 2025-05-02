@@ -1,100 +1,196 @@
-#!/usr/bin/env python3
-import subprocess, sys
-import numpy as np, cv2
+import cv2  # Thư viện OpenCV dùng để xử lý ảnh
+import numpy as np  # Thư viện numpy hỗ trợ thao tác mảng
+import time  # Thư viện đo thời gian
+from typing import Tuple, Dict, Any, Optional  # Khai báo kiểu dữ liệu
+from pprint import pprint  # Hiển thị dict đẹp mắt
 
-# ==== CẤU HÌNH TẠI ĐÂY ====
-TEMPLATE_PATH   = "./growstone/quiz/faces/slim-wrgirl1.png"    # file template đã crop
-DEVICE_ID       = None           # hoặc None nếu chỉ có 1 thiết bị
-ROI             = (80, 0, 1000, 2000) # x0, y0, width, height
-THRESHOLD       = 0.5         # ngưỡng matchTemplate (tăng lên)
-HIST_THRESHOLD  = 0.00           # ngưỡng correlation của histogram
-SCALE_MIN       = 1
-SCALE_MAX       = 10
-SCALE_STEPS     = 20
-OUTPUT_PATH     = "debug.png"
-# ============================
 
-def adb_screencap(device_id=None):
-    cmd = ["adb"] + (["-s", device_id] if device_id else []) + \
-          ["exec-out", "screencap", "-p"]
-    raw = subprocess.check_output(cmd)
-    arr = np.frombuffer(raw, np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-    if img is None:
-        print("❌ Lỗi decode screenshot", file=sys.stderr)
-        sys.exit(1)
-    return img
-
-def multi_scale_template_match(gray_roi, tpl):
-    h0, w0 = tpl.shape
-    best = {"val":-1, "loc":None, "wh":(w0,h0), "scale":1.0}
-    for s in np.linspace(SCALE_MIN, SCALE_MAX, SCALE_STEPS):
-        w, h = int(w0*s), int(h0*s)
+def multi_scale_template_match(
+    gray_roi: np.ndarray,
+    tpl: np.ndarray,
+    scale_min: float = 1.0,
+    scale_max: float = 10.0,
+    scale_steps: int = 20
+) -> Dict[str, Any]:
+    """
+    Thực hiện tìm template ở nhiều tỉ lệ (scale) trong vùng ảnh xám (gray_roi).
+    Trả về dict chứa thông tin kết quả tốt nhất: điểm số, vị trí, kích thước, scale.
+    """
+    h0, w0 = tpl.shape  # Kích thước gốc của template: chiều cao và rộng
+    # Khởi tạo kết quả tốt nhất ban đầu
+    best = {"val": -1.0, "loc": None, "wh": (w0, h0), "scale": 1.0}
+    # Duyệt qua các giá trị scale từ nhỏ đến lớn
+    for s in np.linspace(scale_min, scale_max, scale_steps):
+        w, h = int(w0 * s), int(h0 * s)  # Tính kích thước template sau khi scale
+        # Bỏ qua template quá nhỏ hoặc quá lớn so với ROI
         if w < 10 or h < 10 or w > gray_roi.shape[1] or h > gray_roi.shape[0]:
             continue
+        # Thay đổi kích thước template theo scale hiện tại
         tpl_rs = cv2.resize(tpl, (w, h), interpolation=cv2.INTER_AREA)
+        # So khớp template: trả về ma trận kết quả
         res = cv2.matchTemplate(gray_roi, tpl_rs, cv2.TM_CCOEFF_NORMED)
+        # Lấy giá trị max và vị trí tương ứng
         _, mx, _, pt = cv2.minMaxLoc(res)
+        # Cập nhật kết quả tốt nhất nếu điểm cao hơn
         if mx > best["val"]:
-            best.update(val=mx, loc=pt, wh=(w,h), scale=s)
-    return best
+            best.update(val=mx, loc=pt, wh=(w, h), scale=s)
+    return best  # Trả về kết quả tốt nhất
 
-def main():
-    # 1) Load template
-    tpl = cv2.imread(TEMPLATE_PATH, cv2.IMREAD_GRAYSCALE)
+
+def detect_template(
+    image: np.ndarray,
+    template_path: str,
+    roi: Tuple[int, int, int, int],  # (x0, y0, width, height)
+    threshold: float = 0.5,
+    hist_threshold: float = 0.0,
+    scale_min: float = 1.0,
+    scale_max: float = 10.0,
+    scale_steps: int = 20,
+    annotate: bool = True
+) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
+    """
+    Phát hiện template trong ảnh nhập vào (image) tại vùng ROI.
+    Nếu annotate=True, trả về ảnh có vẽ khung; ngược lại chỉ trả về info.
+    """
+    # Đọc template dưới dạng ảnh xám
+    tpl = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
     if tpl is None:
-        print(f"❌ Không tìm thấy template: {TEMPLATE_PATH}", file=sys.stderr)
-        sys.exit(1)
+        # Không tìm thấy file template
+        raise ValueError(f"Không tìm thấy template: {template_path}")
 
-    # 2) Screenshot
-    full = adb_screencap(DEVICE_ID)
-    gray_full = cv2.cvtColor(full, cv2.COLOR_BGR2GRAY)
+    # Giải nén tọa độ ROI
+    x0, y0, w, h = roi
+    # Chuyển ảnh gốc sang xám để match
+    gray_full = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Cắt vùng ROI từ ảnh xám
+    gray_roi = gray_full[y0:y0+h, x0:x0+w]
 
-    # 3) Crop ROI
-    x0, y0, w, h = ROI
-    x1, y1 = x0 + w, y0 + h
-    gray_roi = gray_full[y0:y1, x0:x1]
+    # Đo thời gian thực thi tìm kiếm
+    start_time = time.time()
+    best = multi_scale_template_match(
+        gray_roi, tpl, scale_min, scale_max, scale_steps
+    )
+    match_time = time.time() - start_time  # Thời gian hoàn thành
 
-    # 4) Multi-scale match
-    best = multi_scale_template_match(gray_roi, tpl)
-    if best["val"] < THRESHOLD:
-        print(f"⚠️ Không tìm thấy match ≥ {THRESHOLD} (max={best['val']:.2f})")
-        sys.exit(1)
+    # Kiểm tra ngưỡng điểm match
+    if best["val"] < threshold:
+        raise ValueError(
+            f"Không có kết quả match đủ {threshold}, điểm cao nhất={best['val']:.2f}"
+        )
 
-    # 5) So sánh histogram để loại false positive
-    bx, by = best["loc"]
+    # Lấy vị trí và kích thước của vùng match
+    bx, by = best["loc"]  # Tọa độ top-left trong ROI
     bw, bh = best["wh"]
+    # Cắt miếng ảnh match để kiểm tra histogram
     patch = gray_roi[by:by+bh, bx:bx+bw]
-
-    # tính histogram 256 bins
-    hist_tpl   = cv2.calcHist([tpl],   [0], None, [256], [0,256])
-    hist_patch = cv2.calcHist([patch], [0], None, [256], [0,256])
-    cv2.normalize(hist_tpl, hist_tpl)
+    # Tính histogram của template và patch
+    hist_tpl = cv2.calcHist([tpl], [0], None, [256], [0, 256])
+    hist_patch = cv2.calcHist([patch], [0], None, [256], [0, 256])
+    cv2.normalize(hist_tpl, hist_tpl)  # Chuẩn hóa histogram
     cv2.normalize(hist_patch, hist_patch)
     hist_corr = cv2.compareHist(hist_tpl, hist_patch, cv2.HISTCMP_CORREL)
+    # Kiểm tra ngưỡng histogram
+    if hist_corr < hist_threshold:
+        raise ValueError(
+            f"Histogram không đủ tin cậy: {hist_corr:.2f} < {hist_threshold}"
+        )
 
-    if hist_corr < HIST_THRESHOLD:
-        print(f"⚠️ Mismatch histogram (corr={hist_corr:.2f} < {HIST_THRESHOLD})")
-        sys.exit(1)
+    # Chuẩn bị dict kết quả
+    info = {
+        "roi": roi,
+        "top_left": (x0 + bx, y0 + by),  # Chuyển sang toạ độ ảnh gốc
+        "bottom_right": (x0 + bx + bw, y0 + by + bh),
+        "match_score": best["val"],
+        "hist_corr": hist_corr,
+        "scale": best["scale"],
+        "template_size": best["wh"],
+        "match_time": match_time,
+    }
 
-    # 6) Tính tọa độ global và vẽ khung
-    top_left     = (x0 + bx, y0 + by)
-    bottom_right = (top_left[0] + bw, top_left[1] + bh)
-    cv2.rectangle(full, top_left, bottom_right, (0,255,0), 3)
-    note = f"{best['val']:.2f}@×{best['scale']:.2f}|h={hist_corr:.2f}"
-    cv2.putText(full, note, (top_left[0], top_left[1] - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
+    # Nếu cần annotate, vẽ khung và ghi thông tin
+    if annotate:
+        annotated = image.copy()
+        cv2.rectangle(
+            annotated,
+            info["top_left"],
+            info["bottom_right"],
+            (0, 255, 0),
+            3
+        )
+        note = f"{best['val']:.2f}@x{best['scale']:.2f}|h={hist_corr:.2f}"
+        cv2.putText(
+            annotated,
+            note,
+            (info["top_left"][0], info["top_left"][1] - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 0),
+            2,
+        )
+        return annotated, info  # Trả về ảnh đã annotate và kết quả
 
-    # 7) Lưu ảnh và in thông tin
-    cv2.imwrite(OUTPUT_PATH, full)
-    print("✅ Đã lưu debug image →", OUTPUT_PATH)
-    print("   ROI                  =", ROI)
-    print("   Match top-left       =", top_left)
-    print("   Match bottom-right   =", bottom_right)
-    print("   Template size        =", best["wh"])
-    print("   matchTemplate score  =", best["val"])
-    print("   histogram corr       =", hist_corr)
-    print("   Used scale           =", best["scale"])
+    # Nếu không annotate, trả về None cho ảnh
+    return None, info
+
 
 if __name__ == "__main__":
-    main()
+    import subprocess
+    import sys
+    start_time = time.time()  # Bắt đầu đo tổng thời gian
+
+    # Cấu hình tham số
+    SAVE_IMAGE = False  # Có lưu ảnh annotate không
+    TEMPLATE_PATH = "./growstone/quiz/faces/slim-doge1.png"
+    DEVICE_ID = None  # ID thiết bị ADB nếu có nhiều thiết bị
+    ROI = (80, 900, 1000, 400)  # Vùng quan tâm (x0, y0, w, h)
+    THRESHOLD = 0.45  # Ngưỡng matchTemplate
+    HIST_THRESHOLD = 0.0  # Ngưỡng histogram correlation
+    SCALE_MIN = 1.0  # Hệ số scale nhỏ nhất
+    SCALE_MAX = 10.0  # Hệ số scale lớn nhất
+    SCALE_STEPS = 20  # Số bước scale
+    OUTPUT_PATH = "debug.png"  # Đường dẫn lưu ảnh
+
+    def adb_screencap(device_id=None):
+        # Chụp màn hình qua ADB và giải mã thành ảnh OpenCV
+        cmd = ["adb"] + (
+            ["-s", device_id] if device_id else []
+        ) + ["exec-out", "screencap", "-p"]
+        raw = subprocess.check_output(cmd)
+        arr = np.frombuffer(raw, np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if img is None:
+            print("Lỗi giải mã ảnh ADB", file=sys.stderr)
+            sys.exit(1)
+        return img
+
+    full_img = adb_screencap(DEVICE_ID)  # Chụp screenshot
+    try:
+        annotated, result = detect_template(
+            full_img,
+            TEMPLATE_PATH,
+            ROI,
+            threshold=THRESHOLD,
+            hist_threshold=HIST_THRESHOLD,
+            scale_min=SCALE_MIN,
+            scale_max=SCALE_MAX,
+            scale_steps=SCALE_STEPS,
+            annotate=SAVE_IMAGE,
+        )
+    except ValueError as e:
+        # Xử lý lỗi không tìm được match
+        print(f"Phát hiện thất bại: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # In kết quả
+    print("Kết quả:")
+    pprint(result)
+
+    # Lưu ảnh nếu cần
+    if SAVE_IMAGE and annotated is not None:
+        cv2.imwrite(OUTPUT_PATH, annotated)
+        print(f"✅ Đã lưu ảnh → {OUTPUT_PATH}")
+    else:
+        print("Bỏ qua lưu ảnh (SAVE_IMAGE=False)")
+
+    # In tổng thời gian
+    print(f"Tổng thời gian: {time.time() - start_time:.2f} giây")
