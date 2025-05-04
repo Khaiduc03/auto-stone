@@ -1,0 +1,10 @@
+SAVE_IMAGE = True  # Có lưu ảnh annotate không
+TEMPLATE_PATH = "./growstone/quiz/faces/slim-bhgirl1.png"
+DEVICE_ID = None  # ID thiết bị ADB nếu có nhiều thiết bị
+GRASS_ROI = (80, 960, 1000, 290)  # Vùng quan tâm (x0, y0, w, h)
+THRESHOLD = 0.5  # Ngưỡng matchTemplate
+HIST_THRESHOLD = 0.0  # Ngưỡng histogram correlation
+SCALE_MIN = 1.0  # Hệ số scale nhỏ nhất
+SCALE_MAX = 10.0  # Hệ số scale lớn nhất
+SCALE_STEPS = 20  # Số bước scale
+OUTPUT_PATH = "debug.png"  # Đường dẫn lưu ảnh
