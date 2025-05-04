@@ -2,8 +2,7 @@ import cv2  # Thư viện OpenCV dùng để xử lý ảnh
 import numpy as np  # Thư viện numpy hỗ trợ thao tác mảng
 import time  # Thư viện đo thời gian
 from typing import Tuple, Dict, Any, Optional  # Khai báo kiểu dữ liệu
-from pprint import pprint  # Hiển thị dict đẹp mắt
-
+from character_utils import detect_characters_group_bbox
 
 def multi_scale_template_match(
     gray_roi: np.ndarray,
@@ -133,16 +132,18 @@ def detect_template(
     return None, info
 
 
+
+
 if __name__ == "__main__":
     import subprocess
     import sys
     start_time = time.time()  # Bắt đầu đo tổng thời gian
 
     # Cấu hình tham số
-    SAVE_IMAGE = False  # Có lưu ảnh annotate không
+    SAVE_IMAGE = True  # Có lưu ảnh annotate không
     TEMPLATE_PATH = "./growstone/quiz/faces/slim-doge1.png"
     DEVICE_ID = None  # ID thiết bị ADB nếu có nhiều thiết bị
-    ROI = (80, 900, 1000, 400)  # Vùng quan tâm (x0, y0, w, h)
+    GRASS_ROI = (80, 960, 1000, 290)  # Vùng quan tâm (x0, y0, w, h)
     THRESHOLD = 0.45  # Ngưỡng matchTemplate
     HIST_THRESHOLD = 0.0  # Ngưỡng histogram correlation
     SCALE_MIN = 1.0  # Hệ số scale nhỏ nhất
@@ -164,11 +165,14 @@ if __name__ == "__main__":
         return img
 
     full_img = adb_screencap(DEVICE_ID)  # Chụp screenshot
+    x1_1, y1_1, x2_1, y2_1 = detect_characters_group_bbox(full_img)
+
+   
     try:
         annotated, result = detect_template(
             full_img,
             TEMPLATE_PATH,
-            ROI,
+            GRASS_ROI,
             threshold=THRESHOLD,
             hist_threshold=HIST_THRESHOLD,
             scale_min=SCALE_MIN,
@@ -181,11 +185,30 @@ if __name__ == "__main__":
         print(f"Phát hiện thất bại: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # In kết quả
-    print("Kết quả:")
-    pprint(result)
 
-    # Lưu ảnh nếu cần
+
+    x1, y1 = result["top_left"]
+    x2, y2 = result["bottom_right"]
+    print(f"Vùng phát hiện x1_1: {x1_1}, x2_: {x2_1}")
+    print(f"Vùng phát hiện x1: {x1}, x2: {x2}")
+    group_w = x2_1 - x1_1
+    tpl_w = x2 - x1
+    rel_x = (x1 - x1_1) / group_w
+    rel_w = tpl_w / group_w 
+
+    k=  x1_1 - 80
+    print(f"Vùng phát hiện k: {k}")
+
+    
+
+
+
+    print(f"Vùng phát hiện group_w: {group_w}")
+
+    print(f"Vùng phát hiện rel_x: {rel_w*100:.1f}%")
+    print(f"Vùng phát hiện rel_x: {rel_x*100:.1f}%")
+
+    #Lưu ảnh nếu cần
     if SAVE_IMAGE and annotated is not None:
         cv2.imwrite(OUTPUT_PATH, annotated)
         print(f"✅ Đã lưu ảnh → {OUTPUT_PATH}")
