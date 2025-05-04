@@ -141,10 +141,10 @@ if __name__ == "__main__":
 
     # Cấu hình tham số
     SAVE_IMAGE = True  # Có lưu ảnh annotate không
-    TEMPLATE_PATH = "./growstone/quiz/faces/slim-doge1.png"
+    TEMPLATE_PATH = "./growstone/quiz/faces/slim-bhgirl1.png"
     DEVICE_ID = None  # ID thiết bị ADB nếu có nhiều thiết bị
     GRASS_ROI = (80, 960, 1000, 290)  # Vùng quan tâm (x0, y0, w, h)
-    THRESHOLD = 0.45  # Ngưỡng matchTemplate
+    THRESHOLD = 0.5  # Ngưỡng matchTemplate
     HIST_THRESHOLD = 0.0  # Ngưỡng histogram correlation
     SCALE_MIN = 1.0  # Hệ số scale nhỏ nhất
     SCALE_MAX = 10.0  # Hệ số scale lớn nhất
@@ -166,8 +166,15 @@ if __name__ == "__main__":
 
     full_img = adb_screencap(DEVICE_ID)  # Chụp screenshot
     x1_1, y1_1, x2_1, y2_1 = detect_characters_group_bbox(full_img)
+    # Khoanh đỏ
+    #cv2.rectangle(full_img, (x1_1, y1_1), (x2_1, y2_1), (0,0,255), 2)
+    #cv2.imwrite('boxed_group_precise.png', full_img)
+    #print(f"Box: top-left=({x1_1},{y1_1}), bottom-right=({x2_1},{y2_1})")
+    divided_by_four = round((x2_1 - x1_1)/ 4,1)
+    print('divided_by_four', divided_by_four)
+    
 
-   
+
     try:
         annotated, result = detect_template(
             full_img,
@@ -189,24 +196,29 @@ if __name__ == "__main__":
 
     x1, y1 = result["top_left"]
     x2, y2 = result["bottom_right"]
-    print(f"Vùng phát hiện x1_1: {x1_1}, x2_: {x2_1}")
+    print(f"Vùng phát hiện x1_1: {x1_1}, x2_2: {x2_1}")
     print(f"Vùng phát hiện x1: {x1}, x2: {x2}")
-    group_w = x2_1 - x1_1
-    tpl_w = x2 - x1
-    rel_x = (x1 - x1_1) / group_w
-    rel_w = tpl_w / group_w 
-
-    k=  x1_1 - 80
-    print(f"Vùng phát hiện k: {k}")
-
+    print(f"hist_corr", result['hist_corr'])
+    print
     
+    count =0
+ 
+
+    for i in range(4):
+        if divided_by_four*count <= x1<= divided_by_four * (count +1):
+            print("x1: ",x1)
+            print("divided_by_four", count)
+            print("divided_by_four+divided_by_four", count+1)
+            break
+        count += 1                # tăng đếm lên 1
+        
+
+
+    print('count', count)
 
 
 
-    print(f"Vùng phát hiện group_w: {group_w}")
 
-    print(f"Vùng phát hiện rel_x: {rel_w*100:.1f}%")
-    print(f"Vùng phát hiện rel_x: {rel_x*100:.1f}%")
 
     #Lưu ảnh nếu cần
     if SAVE_IMAGE and annotated is not None:
