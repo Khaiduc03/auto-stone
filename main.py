@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     # Cấu hình tham số
     SAVE_IMAGE = True  # Có lưu ảnh annotate không
-    TEMPLATE_PATH = "./growstone/quiz/faces/slim-bhgirl1.png"
+    TEMPLATE_PATH = "./growstone/quiz/faces/slim-boy1.png"
     DEVICE_ID = None  # ID thiết bị ADB nếu có nhiều thiết bị
     GRASS_ROI = (80, 960, 1000, 290)  # Vùng quan tâm (x0, y0, w, h)
     THRESHOLD = 0.5  # Ngưỡng matchTemplate
