@@ -81,9 +81,11 @@ def detect_template(
         "template_size": best["wh"],
         "match_time":    match_time,
     }
-
-    print('match_score', info["match_score"])
-    print('hist_corr', info["hist_corr"])
+    # print()
+    # print('==========================')
+    # print('match_score', info["match_score"])
+    # print('hist_corr', info["hist_corr"])
+    # print('==========================\n')
 
     if annotate:
         annotated = image.copy()

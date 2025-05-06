@@ -9,7 +9,7 @@ def detect_characters_group_bbox(
     img: np.ndarray,
     grass_roi: tuple = (80, 960, 1000, 290),
     closing_kernel: tuple[int,int] = (50, 5),
-    opening_kernel: tuple[int,int] = (5, 5)
+    opening_kernel: tuple[int,int] = (50, 5)
 ) -> tuple[int,int,int,int]:
     """
     Tìm bounding box chung của nhóm character trên ROI cỏ.

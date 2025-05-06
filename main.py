@@ -1,10 +1,12 @@
 import cv2  # Thư viện OpenCV dùng để xử lý ảnh
 import numpy as np  # Thư viện numpy hỗ trợ thao tác mảng
 import time  # Thư viện đo thời gian
+import random
+import math
 #from typing import Tuple, Dict, Any, Optional  # Khai báo kiểu dữ liệu
 from character_utils import detect_characters_group_bbox
 from detect_utils import detect_template
-from sovle_quiz import find_search_user
+from sovle_quiz import find_search_user ,get_search_user,sovle_capcha,sovle_capchav2
 from constants import (
 DEVICE_ID,
 TEMPLATE_PATH,
@@ -12,7 +14,21 @@ GRASS_ROI,
 SAVE_IMAGE,
 OUTPUT_PATH
 )
+def adb_tap_random_circle(x, y, radius=10, device_id=None):
+    # Tạo điểm ngẫu nhiên trong hình tròn
+    angle = random.uniform(0, 2 * math.pi)
+    r = radius * math.sqrt(random.uniform(0, 1))  # sqrt để phân bố đều
+    dx = int(r * math.cos(angle))
+    dy = int(r * math.sin(angle))
 
+    rx, ry = x + dx, y + dy
+
+    # Gửi lệnh tap
+    cmd = ["adb"]
+    if device_id:
+        cmd += ["-s", device_id]
+    cmd += ["shell", "input", "tap", str(rx), str(ry)]
+    subprocess.run(cmd)
 
 def adb_screencap(device_id=None):
     # Chụp màn hình qua ADB và giải mã thành ảnh OpenCV
@@ -34,8 +50,8 @@ if __name__ == "__main__":
     start_time = time.time()  # Bắt đầu đo tổng thời gian
 
     full_img = adb_screencap()
-
-    find_search_user(full_img)
+    for i in range(5):
+        sovle_capchav2(full_img)
 
 
     # x1_1, y1_1, x2_1, y2_1 = detect_characters_group_bbox(full_img)

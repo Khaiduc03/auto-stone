@@ -7,7 +7,7 @@ THRESHOLD = 0.6  # Ngưỡng matchTemplate
 HIST_THRESHOLD = 0.01  # Ngưỡng histogram correlation
 SCALE_MIN = 1.0  # Hệ số scale nhỏ nhất
 SCALE_MAX = 10.0  # Hệ số scale lớn nhất
-FINE_STEPS = 10  # Số bước lọc chi tiết
+FINE_STEPS = 20  # Số bước lọc chi tiết
 
-COARSE_STEPS = 10 # Số bước lọc thôz
+COARSE_STEPS = 20 # Số bước lọc thôz
 OUTPUT_PATH = "debug.png"  # Đường dẫn lưu ảnh
