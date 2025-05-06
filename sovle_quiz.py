@@ -3,16 +3,22 @@ import numpy as np
 from typing import Tuple, Dict, Any, Optional
 from functools import lru_cache
 from detect_utils import detect_template
+import random
+import math
+import time  # Thư viện đo thời gian
+import uiautomator2 as u2
 from constants import (
-THRESHOLD,HIST_THRESHOLD,
-SCALE_MIN,
 SCALE_MAX,
-COARSE_STEPS,
-FINE_STEPS,
-SAVE_IMAGE,
 SEARCH_USER_ROI,
 GRASS_ROI,
-OUTPUT_PATH
+OUTPUT_PATH,
+CAPTCHA_TEMPLATE,
+CAPTCHA_ROI,
+CAPTCHA_1,
+CAPTCHA_2,
+CAPTCHA_3,
+CAPTCHA_4,
+CAPTCHA_Y
 )
 
 from character_utils import detect_characters_group_bbox
@@ -92,7 +98,6 @@ def get_search_user(img:np.ndarray):
             cv2.imwrite(f"./debug_out/error.png", img)
             # cv2.imwrite(f"./debug_out2/c2ropped{idx}.png", img)
     return idx    
-
 
 
 
@@ -188,18 +193,51 @@ def sovle_capchav2(img:np.ndarray):
         
     idx = find_user_index_by_path(matched_users, slim_image)
     return idx
-    # if idx is not None:
-    #     print(f"✅ Tìm thấy tại vị trí index: {idx}")
-    # else:
-    #     print("❌ Không tìm thấy")
-  
-        # return sovle_capchav2(img)
-    # try:
-    #     annotated, result = detect_template(
-    #         img,
-    #         slim_image,
-    #         roi,
-    #     )
-    
-    # except ValueError as e:
-    #     # Xử lý lỗi không tìm được match
+
+
+def uiauto_tap(x, y, radius=15, device_ip="127.0.0.1"):
+    # Random điểm trong bán kính
+    angle = random.uniform(0, 2 * math.pi)
+    r = radius * math.sqrt(random.uniform(0, 1))
+    dx = int(r * math.cos(angle))
+    dy = int(r * math.sin(angle))
+
+    rx, ry = x + dx, y + dy
+
+    # Delay nhỏ để giả lập thao tác người
+    time.sleep(random.uniform(0.2, 0.3))
+
+    # Kết nối và tap
+    d = u2.connect(device_ip)
+    d.click(rx, ry)
+
+def tap_capcha(device_id=None, full_img:np.ndarray = None):
+    idx = sovle_capchav2(full_img)
+    print("Người dùng tìm thấy là: ", idx)
+    match idx:
+        case 1:
+            uiauto_tap(CAPTCHA_1, CAPTCHA_Y, 10, device_ip=device_id)
+        case 2:
+            uiauto_tap(CAPTCHA_2, CAPTCHA_Y, 10, device_ip=device_id)
+        case 3:
+            uiauto_tap(CAPTCHA_3, CAPTCHA_Y, 10, device_ip=device_id)
+        case 4:
+            uiauto_tap(CAPTCHA_4, CAPTCHA_Y, 10, device_ip=device_id)
+
+def is_captcha_present(image):
+    try:
+        _, info = detect_template(image, CAPTCHA_TEMPLATE, CAPTCHA_ROI)
+        print(f"[CAPTCHA] Đã phát hiện tại {info['top_left']}, score: {info['match_score']:.2f}")
+        return True
+    except Exception:
+        return False
+
+def main_resolve_quiz(device_id=None, screen:np.ndarray = None):
+    try:
+        if is_captcha_present(screen):
+            print(f"[{device_id}] ✓ Đã phát hiện CAPTCHA")
+            tap_capcha(device_id, full_img=screen)
+        else:
+            print(f"[{device_id}] ✓ Không phát hiện CAPTCHA")
+    except Exception as e:
+        print(f"[{device_id}] Lỗi: {e}")
