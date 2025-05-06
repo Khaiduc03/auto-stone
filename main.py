@@ -9,7 +9,7 @@ from detect_utils import detect_template
 from sovle_quiz import find_search_user ,get_search_user,sovle_capcha,sovle_capchav2
 import uiautomator2 as u2
 from constants import (
-DEVICE_ID,
+
 TEMPLATE_PATH,
 GRASS_ROI,
 SAVE_IMAGE,
@@ -62,17 +62,17 @@ def adb_screencap(device_id=None):
     return img
 
 def tap_capcha(device_id=None):
-    full_img = adb_screencap()
+    full_img = adb_screencap(device_id)
     idx = sovle_capchav2(full_img)
     match idx:
         case 1:
-            uiauto_tap(160, 1656, 10, DEVICE_ID)
+            uiauto_tap(160, 1656, 10, device_ip=device_id)
         case 2:
-            uiauto_tap(400, 1656, 10, DEVICE_ID)
+            uiauto_tap(400, 1656, 10, device_ip=device_id)
         case 3:
-            uiauto_tap(635, 1656, 10, DEVICE_ID)
+            uiauto_tap(635, 1656, 10, device_ip=device_id)
         case 4:
-            uiauto_tap(855, 1656, 10, DEVICE_ID)
+            uiauto_tap(855, 1656, 10, device_ip=device_id)
 
 def is_captcha_present(image):
     try:
@@ -99,12 +99,34 @@ def monitor_loop(device_id, interval_sec=1.5):
             print(f"[{device_id}] Lỗi: {e}")
         time.sleep(interval_sec)
 
+def get_connected_devices():
+    result = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    lines = result.stdout.strip().split("\n")[1:]  # bỏ dòng đầu "List of devices attached"
+    device_ids = [line.split()[0] for line in lines if "device" in line]
+    return device_ids
 
 if __name__ == "__main__":
     import subprocess
     import sys
+    import threading
    # start_time = time.time()  # Bắt đầu đo tổng thời gian
-    monitor_loop(DEVICE_ID, interval_sec=1)  # Bắt đầu giám sát
+    device_ids = get_connected_devices()
+    if not device_ids:
+        print("❌ Không tìm thấy thiết bị ADB nào.")
+        sys.exit(1)
+
+    print(f"✅ Đã phát hiện {len(device_ids)} thiết bị: {device_ids}")
+
+
+    threads = []
+    for device_id in device_ids:
+        t = threading.Thread(target=monitor_loop, args=(device_id,))
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join()
+
     
 
 
