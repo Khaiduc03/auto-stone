@@ -7,12 +7,15 @@ import math
 from character_utils import detect_characters_group_bbox
 from detect_utils import detect_template
 from sovle_quiz import find_search_user ,get_search_user,sovle_capcha,sovle_capchav2
+import uiautomator2 as u2
 from constants import (
 DEVICE_ID,
 TEMPLATE_PATH,
 GRASS_ROI,
 SAVE_IMAGE,
-OUTPUT_PATH
+OUTPUT_PATH,
+CAPTCHA_TEMPLATE,
+CAPTCHA_ROI
 )
 def adb_tap_random_circle(x, y, radius=10, device_id=None):
     # Tạo điểm ngẫu nhiên trong hình tròn
@@ -30,6 +33,21 @@ def adb_tap_random_circle(x, y, radius=10, device_id=None):
     cmd += ["shell", "input", "tap", str(rx), str(ry)]
     subprocess.run(cmd)
 
+def uiauto_tap(x, y, radius=15, device_ip="127.0.0.1"):
+    # Random điểm trong bán kính
+    angle = random.uniform(0, 2 * math.pi)
+    r = radius * math.sqrt(random.uniform(0, 1))
+    dx = int(r * math.cos(angle))
+    dy = int(r * math.sin(angle))
+
+    rx, ry = x + dx, y + dy
+
+    # Delay nhỏ để giả lập thao tác người
+    time.sleep(random.uniform(0.2, 0.8))
+
+    # Kết nối và tap
+    d = u2.connect(device_ip)
+    d.click(rx, ry)
 def adb_screencap(device_id=None):
     # Chụp màn hình qua ADB và giải mã thành ảnh OpenCV
     cmd = ["adb"] + (
@@ -43,61 +61,51 @@ def adb_screencap(device_id=None):
         sys.exit(1)
     return img
 
+def tap_capcha(device_id=None):
+    full_img = adb_screencap()
+    idx = sovle_capchav2(full_img)
+    match idx:
+        case 1:
+            uiauto_tap(160, 1656, 10, DEVICE_ID)
+        case 2:
+            uiauto_tap(400, 1656, 10, DEVICE_ID)
+        case 3:
+            uiauto_tap(635, 1656, 10, DEVICE_ID)
+        case 4:
+            uiauto_tap(855, 1656, 10, DEVICE_ID)
+
+def is_captcha_present(image):
+    try:
+        _, info = detect_template(image, CAPTCHA_TEMPLATE, CAPTCHA_ROI)
+        print(f"[CAPTCHA] Đã phát hiện tại {info['top_left']}, score: {info['match_score']:.2f}")
+        return True
+    except Exception:
+        return False
+
+
+def monitor_loop(device_id, interval_sec=1.5):
+    print(f"[Giám sát] Bắt đầu theo dõi {device_id}...")
+    while True:
+        try:
+            # uiauto_tap(78, 1656, DEVICE_ID)
+            screen = adb_screencap(device_id=device_id)
+            if is_captcha_present(screen):
+                print(f"[{device_id}] ✓ Đã phát hiện CAPTCHA")
+                tap_capcha(device_id)
+                #time.sleep(2)  # Đợi sau khi xử lý captcha
+            else:
+                print(f"[{device_id}] ✓ Không phát hiện CAPTCHA")
+        except Exception as e:
+            print(f"[{device_id}] Lỗi: {e}")
+        time.sleep(interval_sec)
+
 
 if __name__ == "__main__":
     import subprocess
     import sys
-    start_time = time.time()  # Bắt đầu đo tổng thời gian
-
-    full_img = adb_screencap()
-    sovle_capchav2(full_img)
-    # for i in range(5):
-        
-
-
-    # x1_1, y1_1, x2_1, y2_1 = detect_characters_group_bbox(full_img)
-
-    # divided_by_four = round((x2_1 - x1_1)/ 4,1)
+   # start_time = time.time()  # Bắt đầu đo tổng thời gian
+    monitor_loop(DEVICE_ID, interval_sec=1)  # Bắt đầu giám sát
     
-
-
-    # try:
-    #     annotated, result = detect_template(
-    #         full_img,
-    #         TEMPLATE_PATH,
-    #         GRASS_ROI,
-    #     )
-    # except ValueError as e:
-    #     # Xử lý lỗi không tìm được match
-    #     print(f"Phát hiện thất bại: {e}", file=sys.stderr)
-    #     sys.exit(1)
-
-
-
-    # x1, y1 = result["top_left"]
-    # x2, y2 = result["bottom_right"]
-    # # print("divided_by_four ",divided_by_four)
-    # # print(f"Vùng phát hiện x1_1: {x1_1}, x2_2: {x2_1}")
-    # # print(f"Vùng phát hiện x1: {x1}, x2: {x2}")
-
-
-    # count =0
-    # for i in range(5):
-    #     if divided_by_four*count <= x1<= divided_by_four * (count +1):
-    #         # print("divided_by_four", divided_by_four*count)
-    #         # print("x1: ",x1)
-    #         # print("divided_by_four+divided_by_four", divided_by_four * (count +1))
-    #         break
-    #     count += 1                # tăng đếm lên 1
-        
-
-    # print('count', count)
-
-
-    # #Lưu ảnh nếu cần
-    # if SAVE_IMAGE and annotated is not None:
-    #     cv2.imwrite(OUTPUT_PATH, annotated)
-    #     print(f"✅ Đã lưu ảnh → {OUTPUT_PATH}")
 
 
     # # In tổng thời gian

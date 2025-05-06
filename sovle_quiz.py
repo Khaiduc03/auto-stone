@@ -152,16 +152,16 @@ def detech_slim_user(img: np.ndarray, roi: tuple[int, int, int, int]):
             annotated, result = detect_template(img, user, roi, 0.7, 0.02, 1, SCALE_MAX, 30, 30, None, True)
             if result:
                 x1, y1 = result["top_left"]
-                print(f'user find is index {idx}- x1: {x1} - match_score: {result['match_score']} - hist_corr: {result['hist_corr']} - user:{user}' )
-                cv2.imwrite(f'./debug_list_slim/image{idx}.png', annotated)
-                print(f"✅ Đã lưu ảnh → ./debug_list_slim/image{idx}.png")
-                print()
+                # print(f'user find is index {idx}- x1: {x1} - match_score: {result['match_score']} - hist_corr: {result['hist_corr']} - user:{user}' )
+                # cv2.imwrite(f'./debug_list_slim/image{idx}.png', annotated)
+                # print(f"✅ Đã lưu ảnh → ./debug_list_slim/image{idx}.png")
+                # print()
                
                 matched_users.append((x1, user))  # Lưu lại khi tìm được
         except ValueError as e:
             msg, x1, y1, x2, y2 = e.args
-            print(f"[{idx}] Phát hiện thất bại: {msg!r} – user={user}")
-            print()
+            # print(f"[{idx}] Phát hiện thất bại: {msg!r} – user={user}")
+            # print()
     matched_users.sort()
     return matched_users
 
@@ -187,10 +187,11 @@ def sovle_capchav2(img:np.ndarray):
     
         
     idx = find_user_index_by_path(matched_users, slim_image)
-    if idx is not None:
-        print(f"✅ Tìm thấy tại vị trí index: {idx}")
-    else:
-        print("❌ Không tìm thấy")
+    return idx
+    # if idx is not None:
+    #     print(f"✅ Tìm thấy tại vị trí index: {idx}")
+    # else:
+    #     print("❌ Không tìm thấy")
   
         # return sovle_capchav2(img)
     # try:
