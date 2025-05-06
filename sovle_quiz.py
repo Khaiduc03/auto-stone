@@ -95,7 +95,8 @@ def get_search_user(img:np.ndarray):
             return "./growstone/quiz/faces/slim-wrgirl1.png"
         case _:
             print('Not found')
-            cv2.imwrite(f"./debug_out/error.png", img)
+            
+            cv2.imwrite(f"./debug_out/error{time.time()}.png", img)
             # cv2.imwrite(f"./debug_out2/c2ropped{idx}.png", img)
     return idx    
 
@@ -169,9 +170,9 @@ def detech_slim_user(img: np.ndarray, roi: tuple[int, int, int, int]):
             print(f"  → Coordinates from exception: x1={x1}, y1={y1}, x2={x2}, y2={y2}\n")
             x, y, w, h = roi
             # crop = img[y:y+h, x:x+w]
-            crop2 = img[y1:y2, x1:x2]
-            # cv2.imwrite(f"./debug_out/cropped{idx}.png", crop)
-            cv2.imwrite(f"./debug_out2/cropped{idx}.png", crop2)
+            # crop2 = img[y1:y2, x1:x2]
+            # # cv2.imwrite(f"./debug_out/cropped{idx}.png", crop)
+            # cv2.imwrite(f"./debug_out2/cropped{idx}.png", crop2)
             print()
     matched_users.sort()
     return matched_users
