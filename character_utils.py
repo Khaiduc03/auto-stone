@@ -4,12 +4,13 @@ import cv2
 import numpy as np
 
 
+from constants import GRASS_ROI
 
 def detect_characters_group_bbox(
     img: np.ndarray,
-    grass_roi: tuple = (80, 960, 1000, 290),
-    closing_kernel: tuple[int,int] = (50, 5),
-    opening_kernel: tuple[int,int] = (50, 5)
+    grass_roi: tuple = GRASS_ROI,
+    closing_kernel: tuple[int,int] = (25, 5),
+    opening_kernel: tuple[int,int] = (25, 5)
 ) -> tuple[int,int,int,int]:
     """
     Tìm bounding box chung của nhóm character trên ROI cỏ.
@@ -51,7 +52,7 @@ def detect_characters_group_bbox(
     x1, y1 = x_off + x, y_off + y
     x2, y2 = x_off + x + w, y_off + y + h
 
-    return x1, y1, x2, y2
+    return x1, y1, x2, y2 , w, h
 
 
 

@@ -15,8 +15,8 @@ from constants import (
 )
 def auto_click_ruby_box(device_id=None ):
     # 1 Chạm vào vị trí ruby get reward
-    uiauto_tap(78, 1656,10, device_id)
-
+    uiauto_tap(32, 607,2, device_id)
+    print("Chạm vào vị trí ruby get reward")
 
     img = adb_screencap(device_id=device_id)
    
@@ -29,7 +29,7 @@ def auto_click_ruby_box(device_id=None ):
         cy = (y1 + y2) // 2
 
         uiauto_tap(cx, cy, 10, device_id)
-        uiauto_tap(90, 1656,10, device_id)
+        uiauto_tap(90, 525,10, device_id)
     except ValueError as e:
         msg, x1, y1, x2, y2 = e.args
         print(f"[{device_id}] Phát hiện thất bại ruby: {msg!r} ")
@@ -39,7 +39,7 @@ def auto_click_ruby_box(device_id=None ):
         crop2 = img[y1:y2, x1:x2]
        
         cv2.imwrite(f"./debug_out2/c2ropped.png", crop2)
-        uiauto_tap(90, 1656,10, device_id)
+        uiauto_tap(90, 525,10, device_id)
   
 
         

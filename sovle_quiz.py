@@ -44,7 +44,7 @@ def find_search_user(img:np.ndarray ):
     x, y, w, h = SEARCH_USER_ROI
     for idx ,user in enumerate(list_search_user):
         try:
-            annotated, result = detect_template(img, user, SEARCH_USER_ROI, 0.7,0.00,0.5,SCALE_MAX,20,25,None, False )
+            annotated, result = detect_template(img, user, SEARCH_USER_ROI, 0.7,-1,0.5,SCALE_MAX,20,25,None, False )
             if(result):
                 #print(f'user find is index {idx}: ' , user)
                 # x1, y1 = result["top_left"]
@@ -77,7 +77,7 @@ def get_search_user(img:np.ndarray):
             print("Blue")
             return "./growstone/quiz/faces/slim-blue2.png"
         case 2 | 3 | 4 | 5:
-            return "./growstone/quiz/faces/slim-boy1.png"
+            return "./growstone/quiz/faces/slim-boy2.png"
         case 6 | 7:
             print('Doge')
             return "./growstone/quiz/faces/slim-doge1.png"
@@ -86,7 +86,7 @@ def get_search_user(img:np.ndarray):
             return "./growstone/quiz/faces/slim-bhgirl3.png"
         case 10 | 11:
             print('Kakasi')
-            return "./growstone/quiz/faces/slim-ninja1.png"
+            return "./growstone/quiz/faces/slim-ninja2.png"
         case 12 | 13:
             print('Ninja girl')
             return "./growstone/quiz/faces/slim-fninja1.png"
@@ -142,10 +142,10 @@ def sovle_capcha(img:np.ndarray):
 def detech_slim_user(img: np.ndarray, roi: tuple[int, int, int, int]):
     list_slim_user = [
         "./growstone/quiz/faces/slim-blue2.png",
-        "./growstone/quiz/faces/slim-boy1.png",
+        "./growstone/quiz/faces/slim-boy2.png",
         "./growstone/quiz/faces/slim-doge1.png",
         "./growstone/quiz/faces/slim-bhgirl3.png",
-        "./growstone/quiz/faces/slim-ninja1.png",
+        "./growstone/quiz/faces/slim-ninja2.png",
         "./growstone/quiz/faces/slim-fninja1.png",
         "./growstone/quiz/faces/slim-wrgirl1.png"
     ]
@@ -154,10 +154,10 @@ def detech_slim_user(img: np.ndarray, roi: tuple[int, int, int, int]):
 
     for idx, user in enumerate(list_slim_user):
         try:
-            annotated, result = detect_template(img, user, roi, 0.7, 0.02, 1, SCALE_MAX, 30, 30, None, True)
+            annotated, result = detect_template(img, user, roi, 0.65, -1, 0.5, SCALE_MAX, 20, 20, None, False)
             if result:
                 x1, y1 = result["top_left"]
-                # print(f'user find is index {idx}- x1: {x1} - match_score: {result['match_score']} - hist_corr: {result['hist_corr']} - user:{user}' )
+                print(f'user find is index {idx}- x1: {x1} - match_score: {result['match_score']} - hist_corr: {result['hist_corr']} - user:{user}' )
                 # cv2.imwrite(f'./debug_list_slim/image{idx}.png', annotated)
                 # print(f"✅ Đã lưu ảnh → ./debug_list_slim/image{idx}.png")
                 # print()
@@ -165,8 +165,14 @@ def detech_slim_user(img: np.ndarray, roi: tuple[int, int, int, int]):
                 matched_users.append((x1, user))  # Lưu lại khi tìm được
         except ValueError as e:
             msg, x1, y1, x2, y2 = e.args
-            # print(f"[{idx}] Phát hiện thất bại: {msg!r} – user={user}")
-            # print()
+            print(f"[{idx}] Phát hiện thất bại: {msg!r} – user={user}")
+            print(f"  → Coordinates from exception: x1={x1}, y1={y1}, x2={x2}, y2={y2}\n")
+            x, y, w, h = roi
+            # crop = img[y:y+h, x:x+w]
+            crop2 = img[y1:y2, x1:x2]
+            # cv2.imwrite(f"./debug_out/cropped{idx}.png", crop)
+            cv2.imwrite(f"./debug_out2/cropped{idx}.png", crop2)
+            print()
     matched_users.sort()
     return matched_users
 
@@ -181,8 +187,10 @@ def find_user_index_by_path(matched_users: list[tuple[int, str]], x: str) -> int
 def sovle_capchav2(img:np.ndarray):
     slim_image = get_search_user(img)
 
-    x1_ug, y1_ug,x2_ug, y2_ug = detect_characters_group_bbox(img)
-    roi = (x1_ug, y1_ug, x2_ug-x1_ug, y2_ug-y1_ug)
+    # x1_ug, y1_ug,x2_ug, y2_ug,w, h  = detect_characters_group_bbox(img)
+    # crop = img[y1_ug:y1_ug+h, x1_ug:x1_ug+w]
+    # cv2.imwrite("cropped3.png", crop)
+    # roi = (x1_ug, y1_ug, x2_ug-x1_ug, y2_ug-y1_ug)
     matched_users = detech_slim_user(img, GRASS_ROI)
     print("matched_users", matched_users)
     if  matched_users.__len__() != 4:
