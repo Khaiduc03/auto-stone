@@ -13,82 +13,6 @@ FINE_STEPS,
 SAVE_IMAGE
 )
 
-def detect_template2(
-    image: np.ndarray,
-    targer_image: np.ndarray,
-    roi: Tuple[int, int, int, int],
-    threshold: float = THRESHOLD,
-    hist_threshold: float = HIST_THRESHOLD,
-    scale_min: float = SCALE_MIN,
-    scale_max: float = SCALE_MAX,
-    coarse_steps: int = COARSE_STEPS,
-    fine_steps: int = FINE_STEPS,
-    n_workers: int = None,
-    annotate: bool = SAVE_IMAGE
-) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
-    tpl = targer_image
-
-    x0, y0, w, h = roi
-    gray_full = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gray_roi  = gray_full[y0:y0+h, x0:x0+w]
-
-    start = time.time()
-    best = multi_scale_template_match(
-        gray_roi, tpl,
-        scale_min, scale_max,
-        coarse_steps, fine_steps,
-        n_workers
-    )
-    match_time = time.time() - start
-
-    if best["val"] < threshold:
-        raise ValueError(
-            f"Không có kết quả match đủ {threshold}, điểm cao nhất={best['val']:.2f}"
-        )
-
-    bx, by = best["loc"]
-    bw, bh = best["wh"]
-    patch = gray_roi[by:by+bh, bx:bx+bw]
-
-    # so sánh histogram
-    hist_tpl   = cv2.calcHist([tpl],     [0], None, [256], [0, 256])
-    hist_patch = cv2.calcHist([patch],   [0], None, [256], [0, 256])
-    cv2.normalize(hist_tpl,   hist_tpl)
-    cv2.normalize(hist_patch, hist_patch)
-    hist_corr = cv2.compareHist(hist_tpl, hist_patch, cv2.HISTCMP_CORREL)
-    if hist_corr < hist_threshold:
-        raise ValueError(
-            f"Histogram không đủ tin cậy: {hist_corr:.2f} < {hist_threshold}"
-        )
-
-    info = {
-        "roi": roi,
-        "top_left":     (x0 + bx, y0 + by),
-        "bottom_right": (x0 + bx + bw, y0 + by + bh),
-        "match_score":  best["val"],
-        "hist_corr":    hist_corr,
-        "scale":        best["scale"],
-        "template_size": best["wh"],
-        "match_time":    match_time,
-    }
-
-    print('match_score', info["match_score"])
-    print('hist_corr', info["hist_corr"])
-
-    if annotate:
-        annotated = image.copy()
-        cv2.rectangle(annotated, info["top_left"], info["bottom_right"], (0,255,0), 3)
-        note = f"{best['val']:.2f}@×{best['scale']:.2f} | h={hist_corr:.2f}"
-        cv2.putText(annotated, note,
-                    (info["top_left"][0], info["top_left"][1]-10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
-        return annotated, info
-
-    return None, info
-
-
-
-
 def detect_template(
     image: np.ndarray,
     template_path: str,
@@ -119,14 +43,21 @@ def detect_template(
     )
     match_time = time.time() - start
 
-    if best["val"] < threshold:
-        raise ValueError(
-            f"Không có kết quả match đủ {threshold}, điểm cao nhất={best['val']:.2f}"
-        )
-
     bx, by = best["loc"]
     bw, bh = best["wh"]
+    x1, y1 = x0 + bx,       y0 + by
+    x2, y2 = x1 + bw,       y1 + bh
     patch = gray_roi[by:by+bh, bx:bx+bw]
+
+    if best["val"] < threshold:
+        raise ValueError(
+            f"Match score {best['val']:.2f} < threshold {threshold:.2f}",
+            x1, y1, x2, y2
+        )
+
+
+
+   
 
     # so sánh histogram
     hist_tpl   = cv2.calcHist([tpl],     [0], None, [256], [0, 256])
@@ -136,13 +67,14 @@ def detect_template(
     hist_corr = cv2.compareHist(hist_tpl, hist_patch, cv2.HISTCMP_CORREL)
     if hist_corr < hist_threshold:
         raise ValueError(
-            f"Histogram không đủ tin cậy: {hist_corr:.2f} < {hist_threshold}"
+            f"Histogram corr {hist_corr:.2f} < hist_threshold {hist_threshold:.2f}",
+            x1, y1, x2, y2
         )
 
     info = {
         "roi": roi,
-        "top_left":     (x0 + bx, y0 + by),
-        "bottom_right": (x0 + bx + bw, y0 + by + bh),
+        "top_left":     (x1, y1),
+        "bottom_right": (x2, y2),
         "match_score":  best["val"],
         "hist_corr":    hist_corr,
         "scale":        best["scale"],
