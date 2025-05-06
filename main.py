@@ -13,7 +13,7 @@ def monitor_loop(device_id, interval_sec=1):
             screen = adb_screencap(device_id=device_id)
             main_resolve_quiz(device_id, screen)
             auto_enter_dungeon(device_id, screen)
-            if(time_sleep_click_ruby == 3):
+            if(time_sleep_click_ruby == 30):
                auto_click_ruby_box(device_id)
                time_sleep_click_ruby = 0
             else:
@@ -33,27 +33,27 @@ if __name__ == "__main__":
 
     import sys
     import threading
-    screen = adb_screencap(device_id='emulator-5556')
-    tap_capcha('emulator-5556',screen)
+    # screen = adb_screencap(device_id='emulator-5556')
+    # tap_capcha('emulator-5556',screen)
     #main_resolve_quiz('emulator-5556', screen)
-    # auto_click_ruby_box('emulator-5556')
+    #auto_click_ruby_box('emulator-5556')
     # device_ids = get_connected_devices()
-    # device_ids = ['emulator-5556']
-    # if not device_ids:
-    #     print("❌ Không tìm thấy thiết bị ADB nào.")
-    #     sys.exit(1)
+    device_ids = ['emulator-5556']
+    if not device_ids:
+        print("❌ Không tìm thấy thiết bị ADB nào.")
+        sys.exit(1)
 
-    # print(f"✅ Đã phát hiện {len(device_ids)} thiết bị: {device_ids}")
+    print(f"✅ Đã phát hiện {len(device_ids)} thiết bị: {device_ids}")
 
 
-    # threads = []
-    # for device_id in device_ids:
-    #     t = threading.Thread(target=monitor_loop, args=(device_id,))
-    #     t.start()
-    #     threads.append(t)
+    threads = []
+    for device_id in device_ids:
+        t = threading.Thread(target=monitor_loop, args=(device_id,))
+        t.start()
+        threads.append(t)
 
-    # for t in threads:
-    #     t.join()
+    for t in threads:
+        t.join()
 
     
 

@@ -17,7 +17,7 @@ def auto_click_ruby_box(device_id=None ):
     # 1 Chạm vào vị trí ruby get reward
     uiauto_tap(32, 607,2, device_id)
     print("Chạm vào vị trí ruby get reward")
-
+    time.sleep(0.5)
     img = adb_screencap(device_id=device_id)
    
     try:
@@ -39,6 +39,7 @@ def auto_click_ruby_box(device_id=None ):
         crop2 = img[y1:y2, x1:x2]
        
         cv2.imwrite(f"./debug_out2/c2ropped.png", crop2)
+        cv2.imwrite(f"./debug_out2/c1ropped.png", crop)
         uiauto_tap(90, 525,10, device_id)
   
 
