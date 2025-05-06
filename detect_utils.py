@@ -119,7 +119,7 @@ def multi_scale_template_match(
 
     def match_at_scale(s: float):
         w, h = int(w0 * s), int(h0 * s)
-        if w < 10 or h < 10 or w > gray_roi.shape[1] or h > gray_roi.shape[0]:
+        if w < 20 or h < 20 or w > gray_roi.shape[1] or h > gray_roi.shape[0]:
             return None
         tpl_rs = cv2.resize(tpl_f, (w, h), interpolation=cv2.INTER_AREA)
         res = cv2.matchTemplate(gray_f, tpl_rs, cv2.TM_CCOEFF_NORMED)

@@ -50,8 +50,9 @@ if __name__ == "__main__":
     start_time = time.time()  # Bắt đầu đo tổng thời gian
 
     full_img = adb_screencap()
-    for i in range(5):
-        sovle_capchav2(full_img)
+    sovle_capchav2(full_img)
+    # for i in range(5):
+        
 
 
     # x1_1, y1_1, x2_1, y2_1 = detect_characters_group_bbox(full_img)
