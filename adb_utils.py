@@ -3,17 +3,16 @@ import sys
 import cv2  # Thư viện OpenCV dùng để xử lý ảnh
 import numpy as np  # Thư viện numpy hỗ trợ thao tác mảng
 import time  # Thư viện đo thời gian
-
+import uiautomator2 as u2
 def adb_screencap(device_id=None):
-    # Chụp màn hình qua ADB và giải mã thành ảnh OpenCV
-    cmd = ["adb"] + (
-        ["-s", device_id] if device_id else []
-    ) + ["exec-out", "screencap", "-p"]
-    raw = subprocess.check_output(cmd)
-    arr = np.frombuffer(raw, np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    # Kết nối đến thiết bị Android qua uiautomator2
+    # Nếu device_id là None thì sẽ connect đến thiết bị mặc định
+    d = u2.connect_usb(device_id) if device_id else u2.connect()
+    
+    # Chụp màn hình dưới dạng OpenCV BGR ndarray
+    img = d.screenshot(format="opencv")
     if img is None:
-        print("Lỗi giải mã ảnh ADB", file=sys.stderr)
+        print("Lỗi giải mã ảnh uiautomator2", file=sys.stderr)
     return img
 
 def get_connected_devices():
@@ -23,19 +22,4 @@ def get_connected_devices():
     return device_ids
 
 
-# def monitor_loop(device_id, interval_sec=1.5):
-#     print(f"[Giám sát] Bắt đầu theo dõi {device_id}...")
-#     while True:
-#         try:
-#             # uiauto_tap(78, 1656, DEVICE_ID)
-#             screen = adb_screencap(device_id=device_id)
-#             if is_captcha_present(screen):
-#                 print(f"[{device_id}] ✓ Đã phát hiện CAPTCHA")
-#                 tap_capcha(device_id, full_img=screen)
-#                 #time.sleep(2)  # Đợi sau khi xử lý captcha
-#             else:
-#                 print(f"[{device_id}] ✓ Không phát hiện CAPTCHA")
-#         except Exception as e:
-#             print(f"[{device_id}] Lỗi: {e}")
-#         time.sleep(interval_sec)
 

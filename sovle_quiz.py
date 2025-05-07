@@ -196,6 +196,7 @@ def sovle_capchav2(img:np.ndarray):
     print("matched_users", matched_users)
     if  matched_users.__len__() != 4:
         #how to throw error
+        cv2.imwrite(f"./error/error{time.time()}.png", img)
         print("❌ Không tìm thấy đủ 4 người")
         return
     
@@ -235,7 +236,7 @@ def tap_capcha(device_id=None, full_img:np.ndarray = None):
 
 def is_captcha_present(image):
     try:
-        _, info = detect_template(image, CAPTCHA_TEMPLATE, CAPTCHA_ROI)
+        _, info = detect_template(image, CAPTCHA_TEMPLATE, CAPTCHA_ROI, 0.5, -1, 0.5, SCALE_MAX, 10, 10, None, False)
         print(f"[CAPTCHA] Đã phát hiện tại {info['top_left']}, score: {info['match_score']:.2f}")
         return True
     except Exception:

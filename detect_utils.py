@@ -23,7 +23,7 @@ def detect_template(
     scale_max: float = SCALE_MAX,
     coarse_steps: int = COARSE_STEPS,
     fine_steps: int = FINE_STEPS,
-    n_workers: int = None,
+    n_workers: int = 1,
     annotate: bool = SAVE_IMAGE
 ) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
     tpl = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
