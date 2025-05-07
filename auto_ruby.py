@@ -29,18 +29,18 @@ def auto_click_ruby_box(device_id=None ):
         cy = (y1 + y2) // 2
 
         uiauto_tap(cx, cy, 10, device_id)
-        uiauto_tap(90, 525,10, device_id)
+        uiauto_tap(10, 525,10, device_id)
     except ValueError as e:
         msg, x1, y1, x2, y2 = e.args
         print(f"[{device_id}] Phát hiện thất bại ruby: {msg!r} ")
         print(f"  → Coordinates from exception: x1={x1}, y1={y1}, x2={x2}, y2={y2}\n")
-        x, y, w, h = RUBY_ROI
-        crop = img[y:y+h, x:x+w]
-        crop2 = img[y1:y2, x1:x2]
+        # x, y, w, h = RUBY_ROI
+        # crop = img[y:y+h, x:x+w]
+        # crop2 = img[y1:y2, x1:x2]
        
-        cv2.imwrite(f"./debug_out2/c2ropped.png", crop2)
-        cv2.imwrite(f"./debug_out2/c1ropped.png", crop)
-        uiauto_tap(90, 525,10, device_id)
+        # cv2.imwrite(f"./debug_out2/c2ropped.png", crop2)
+        # cv2.imwrite(f"./debug_out2/c1ropped.png", crop)
+        uiauto_tap(10, 525,10, device_id)
   
 
         
