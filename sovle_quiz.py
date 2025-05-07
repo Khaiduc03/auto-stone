@@ -155,7 +155,7 @@ def detech_slim_user(img: np.ndarray, roi: tuple[int, int, int, int]):
 
     for idx, user in enumerate(list_slim_user):
         try:
-            annotated, result = detect_template(img, user, roi, 0.65, -1, 0.5, SCALE_MAX, 20, 20, None, False)
+            annotated, result = detect_template(img, user, roi, 0.60, -1, 0.5, SCALE_MAX, 20, 20, None, False)
             if result:
                 x1, y1 = result["top_left"]
                 print(f'user find is index {idx}- x1: {x1} - match_score: {result['match_score']} - hist_corr: {result['hist_corr']} - user:{user}' )
@@ -196,7 +196,7 @@ def sovle_capchav2(img:np.ndarray):
     print("matched_users", matched_users)
     if  matched_users.__len__() != 4:
         #how to throw error
-        cv2.imwrite(f"./error/error{time.time()}.png", img)
+        # cv2.imwrite(f"./error/error{time.time()}.png", img)
         print("❌ Không tìm thấy đủ 4 người")
         return
     
@@ -242,12 +242,12 @@ def is_captcha_present(image):
     except Exception:
         return False
 
-def main_resolve_quiz(device_id=None, screen:np.ndarray = None):
+def main_resolve_quiz(device_id=None, screen:np.ndarray = None, name=None):
     try:
         if is_captcha_present(screen):
             print(f"[{device_id}] ✓ Đã phát hiện CAPTCHA")
             tap_capcha(device_id, full_img=screen)
         else:
-            print(f"[{device_id}] ✓ Không phát hiện CAPTCHA")
+            print(f"[{device_id}-{name}] ✓ Không phát hiện CAPTCHA")
     except Exception as e:
         print(f"[{device_id}] Lỗi: {e}")

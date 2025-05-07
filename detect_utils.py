@@ -103,9 +103,9 @@ def detect_template(
 def multi_scale_template_match(
     gray_roi: np.ndarray,
     tpl: np.ndarray,
-    scale_min: float = 1.0,
+    scale_min: float = 0.5,
     scale_max: float = 10.0,
-    coarse_steps: int = 8,
+    coarse_steps: int = 15,
     fine_steps: int = 20,
     n_workers: int = None,
 ) -> Dict[str, Any]:
