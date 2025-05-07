@@ -39,7 +39,7 @@ def list_ldplayer_instances(ldconsole_path=r"C:\LDPlayer\LDPlayer4\ldconsole.exe
     try:
         output = subprocess.check_output(
             [ldconsole_path, "list2"],
-            encoding="gbk",    # GBK để giữ nguyên ký tự đa byte
+            encoding="gbk",
             errors="ignore"
         )
     except subprocess.CalledProcessError:
@@ -48,7 +48,6 @@ def list_ldplayer_instances(ldconsole_path=r"C:\LDPlayer\LDPlayer4\ldconsole.exe
     reader = csv.reader(StringIO(output))
     instances = {}
     for row in reader:
-        # row[0]: index, row[1]: name
         if len(row) >= 2 and row[0].isdigit():
             idx = int(row[0])
             name = row[1].strip()
@@ -69,13 +68,14 @@ def get_ldplayer_instance_name(device_id):
 
 # --- Thread giám sát ---
 class MonitorThread(threading.Thread):
-    def __init__(self, device_id, name, interval=3):
+    def __init__(self, device_id, name, interval=5, on_stop=None):
         super().__init__()
         self.device_id = device_id
         self.name = name
         self.interval = interval
         self._stop_event = threading.Event()
-        self._ruby_counter = 0
+        self._ruby_counter = 3
+        self.on_stop = on_stop  # callback khi thread dừng
 
     def run(self):
         print(f"[Giám sát] Bắt đầu theo dõi {self.name} ({self.device_id})")
@@ -93,6 +93,8 @@ class MonitorThread(threading.Thread):
                 print(f"[{self.name}] Lỗi: {e}")
             time.sleep(self.interval)
         print(f"[Giám sát] Dừng theo dõi {self.name}")
+        if self.on_stop:
+            self.on_stop(self.device_id)
 
     def stop(self):
         self._stop_event.set()
@@ -103,6 +105,7 @@ class VMManagerApp(tk.Tk):
         super().__init__()
         self.title("Virtual Machine Manager")
         self.threads = {}
+        self.status_labels = {}
 
         device_ids = get_connected_devices()
         if not device_ids:
@@ -110,34 +113,47 @@ class VMManagerApp(tk.Tk):
             self.destroy()
             return
 
-        for row, device_id in enumerate(device_ids):
+        # Các control chung: Start All / Stop All
+        control_frame = ttk.Frame(self, padding=5)
+        control_frame.grid(row=0, column=0, sticky="w")
+        btn_start_all = ttk.Button(control_frame, text="Start All", command=self.start_all)
+        btn_start_all.pack(side="left", padx=5)
+        btn_stop_all = ttk.Button(control_frame, text="Stop All", command=self.stop_all)
+        btn_stop_all.pack(side="left", padx=5)
+
+        # Danh sách VM
+        for idx, device_id in enumerate(device_ids, start=1):
             name = get_ldplayer_instance_name(device_id)
             frame = ttk.Frame(self, padding=5)
-            frame.grid(row=row, column=0, sticky="w")
+            frame.grid(row=idx, column=0, sticky="w")
 
-            lbl = ttk.Label(frame, text=f"{name}", width=30)
-            lbl.pack(side="left")
+            lbl_name = ttk.Label(frame, text=f"{name}", width=25)
+            lbl_name.pack(side="left")
 
-            btn_start = ttk.Button(
-                frame, text="Start",
-                command=lambda d=device_id: self.start_monitor(d)
-            )
+            status = ttk.Label(frame, text="Stopped", width=10, foreground="red")
+            status.pack(side="left", padx=5)
+            self.status_labels[device_id] = status
+
+            btn_start = ttk.Button(frame, text="Start",
+                                   command=lambda d=device_id: self.start_monitor(d))
             btn_start.pack(side="left", padx=5)
 
-            btn_stop = ttk.Button(
-                frame, text="Stop",
-                command=lambda d=device_id: self.stop_monitor(d)
-            )
+            btn_stop = ttk.Button(frame, text="Stop",
+                                  command=lambda d=device_id: self.stop_monitor(d))
             btn_stop.pack(side="left", padx=5)
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def start_monitor(self, device_id):
+        # Nếu đang chạy, bỏ qua
         if device_id in self.threads and self.threads[device_id].is_alive():
             print(f"{device_id} đang chạy rồi.")
             return
         name = get_ldplayer_instance_name(device_id)
-        t = MonitorThread(device_id, name)
+        # Cập nhật giao diện
+        self.status_labels[device_id].config(text="Running", foreground="green")
+        # Tạo thread với callback cập nhật status khi dừng
+        t = MonitorThread(device_id, name, on_stop=self._on_thread_stop)
         t.daemon = True
         t.start()
         self.threads[device_id] = t
@@ -147,10 +163,23 @@ class VMManagerApp(tk.Tk):
         t = self.threads.get(device_id)
         if t and t.is_alive():
             t.stop()
-            t.join()
-            print(f"Đã stop {device_id}")
+            print(f"Đang stop {device_id}...")
         else:
             print(f"{device_id} không đang chạy.")
+
+    def start_all(self):
+        for device_id in list(self.status_labels.keys()):
+            self.start_monitor(device_id)
+
+    def stop_all(self):
+        for device_id in list(self.threads.keys()):
+            self.stop_monitor(device_id)
+
+    def _on_thread_stop(self, device_id):
+        # Callback khi thread kết thúc
+        if device_id in self.status_labels:
+            self.status_labels[device_id].config(text="Stopped", foreground="red")
+        print(f"Đã stop {device_id}")
 
     def on_close(self):
         for t in self.threads.values():
