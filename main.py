@@ -12,39 +12,25 @@ from sovle_quiz import main_resolve_quiz
 
 # --- Helper để parse port từ device_id ---
 def extract_port(device_id):
-    """
-    Hỗ trợ cả hai dạng:
-      - 'emulator-5556'
-      - '127.0.0.1:5556'
-    Trả về int port hoặc None nếu không parse được.
-    """
     if ':' in device_id:
         port_str = device_id.rsplit(':', 1)[1]
     elif '-' in device_id:
         port_str = device_id.rsplit('-', 1)[1]
     else:
         return None
-
     try:
         return int(port_str)
     except ValueError:
         return None
 
-# --- Lấy map index → name (chỉ chạy 1 lần) ---
+# --- Lấy map index → name ---
 def list_ldplayer_instances(ldconsole_path=r"C:\LDPlayer\LDPlayer4\ldconsole.exe"):
-    """
-    Chạy ldconsole list2, decode với GBK (để tránh '?????'),
-    parse CSV và trả về dict: { index: name }
-    """
     try:
         output = subprocess.check_output(
-            [ldconsole_path, "list2"],
-            encoding="gbk",
-            errors="ignore"
+            [ldconsole_path, "list2"], encoding="gbk", errors="ignore"
         )
     except subprocess.CalledProcessError:
         return {}
-
     reader = csv.reader(StringIO(output))
     instances = {}
     for row in reader:
@@ -68,27 +54,45 @@ def get_ldplayer_instance_name(device_id):
 
 # --- Thread giám sát ---
 class MonitorThread(threading.Thread):
-    def __init__(self, device_id, name, interval=5, on_stop=None):
+    def __init__(self, device_id, name, auto_dungeon=False, auto_ruby=False, interval=5, on_stop=None):
         super().__init__()
         self.device_id = device_id
         self.name = name
         self.interval = interval
+        self.auto_dungeon = auto_dungeon
+        self.auto_ruby = auto_ruby
         self._stop_event = threading.Event()
         self._ruby_counter = 3
-        self.on_stop = on_stop  # callback khi thread dừng
+        self.on_stop = on_stop
+
+    def set_auto_dungeon(self, enabled: bool):
+        self.auto_dungeon = enabled
+        print(f"[{self.name}] Auto Dungeon set to {enabled}")
+
+    def get_auto_dungeon(self) -> bool:
+        return self.auto_dungeon
+
+    def set_auto_ruby(self, enabled: bool):
+        self.auto_ruby = enabled
+        print(f"[{self.name}] Auto Ruby set to {enabled}")
+
+    def get_auto_ruby(self) -> bool:
+        return self.auto_ruby
 
     def run(self):
         print(f"[Giám sát] Bắt đầu theo dõi {self.name} ({self.device_id})")
         while not self._stop_event.is_set():
             try:
                 screen = adb_screencap(device_id=self.device_id)
-                auto_enter_dungeon(self.device_id, screen)
+                if self.auto_dungeon:
+                    auto_enter_dungeon(self.device_id, screen)
                 main_resolve_quiz(self.device_id, screen, self.name)
-                if self._ruby_counter >= 3:
-                    auto_click_ruby_box(self.device_id)
-                    self._ruby_counter = 0
-                else:
-                    self._ruby_counter += 1
+                if self.auto_ruby:
+                    if self._ruby_counter >= 3:
+                        auto_click_ruby_box(self.device_id)
+                        self._ruby_counter = 0
+                    else:
+                        self._ruby_counter += 1
             except Exception as e:
                 print(f"[{self.name}] Lỗi: {e}")
             time.sleep(self.interval)
@@ -106,6 +110,13 @@ class VMManagerApp(tk.Tk):
         self.title("Virtual Machine Manager")
         self.threads = {}
         self.status_labels = {}
+        self.auto_dungeon_vars = {}
+        self.auto_ruby_vars = {}
+
+        control_frame = ttk.Frame(self, padding=5)
+        control_frame.grid(row=0, column=0, sticky="w")
+        ttk.Button(control_frame, text="Start All", command=self.start_all).pack(side="left", padx=5)
+        ttk.Button(control_frame, text="Stop All", command=self.stop_all).pack(side="left", padx=5)
 
         device_ids = get_connected_devices()
         if not device_ids:
@@ -113,81 +124,84 @@ class VMManagerApp(tk.Tk):
             self.destroy()
             return
 
-        # Các control chung: Start All / Stop All
-        control_frame = ttk.Frame(self, padding=5)
-        control_frame.grid(row=0, column=0, sticky="w")
-        btn_start_all = ttk.Button(control_frame, text="Start All", command=self.start_all)
-        btn_start_all.pack(side="left", padx=5)
-        btn_stop_all = ttk.Button(control_frame, text="Stop All", command=self.stop_all)
-        btn_stop_all.pack(side="left", padx=5)
-
-        # Danh sách VM
         for idx, device_id in enumerate(device_ids, start=1):
             name = get_ldplayer_instance_name(device_id)
             frame = ttk.Frame(self, padding=5)
             frame.grid(row=idx, column=0, sticky="w")
 
-            lbl_name = ttk.Label(frame, text=f"{name}", width=25)
-            lbl_name.pack(side="left")
+            # biến control cho từng VM
+            self.auto_dungeon_vars[device_id] = tk.BooleanVar(value=True)
+            self.auto_ruby_vars[device_id] = tk.BooleanVar(value=True)
+
+            ttk.Label(frame, text=name, width=25).pack(side="left")
+            cb_dg = ttk.Checkbutton(
+                frame, text="Dungeon",
+                variable=self.auto_dungeon_vars[device_id],
+                command=lambda d=device_id: self._toggle_dungeon(d)
+            )
+            cb_dg.pack(side="left", padx=2)
+            cb_rb = ttk.Checkbutton(
+                frame, text="Ruby",
+                variable=self.auto_ruby_vars[device_id],
+                command=lambda d=device_id: self._toggle_ruby(d)
+            )
+            cb_rb.pack(side="left", padx=2)
 
             status = ttk.Label(frame, text="Stopped", width=10, foreground="red")
             status.pack(side="left", padx=5)
             self.status_labels[device_id] = status
 
-            btn_start = ttk.Button(frame, text="Start",
-                                   command=lambda d=device_id: self.start_monitor(d))
-            btn_start.pack(side="left", padx=5)
-
-            btn_stop = ttk.Button(frame, text="Stop",
-                                  command=lambda d=device_id: self.stop_monitor(d))
-            btn_stop.pack(side="left", padx=5)
+            ttk.Button(frame, text="Start", command=lambda d=device_id: self.start_monitor(d)).pack(side="left", padx=5)
+            ttk.Button(frame, text="Stop",  command=lambda d=device_id: self.stop_monitor(d)).pack(side="left", padx=5)
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def _toggle_dungeon(self, device_id):
+        var = self.auto_dungeon_vars[device_id].get()
+        t = self.threads.get(device_id)
+        if t and t.is_alive():
+            t.set_auto_dungeon(var)
+
+    def _toggle_ruby(self, device_id):
+        var = self.auto_ruby_vars[device_id].get()
+        t = self.threads.get(device_id)
+        if t and t.is_alive():
+            t.set_auto_ruby(var)
+
     def start_monitor(self, device_id):
-        # Nếu đang chạy, bỏ qua
         if device_id in self.threads and self.threads[device_id].is_alive():
-            print(f"{device_id} đang chạy rồi.")
             return
         name = get_ldplayer_instance_name(device_id)
-        # Cập nhật giao diện
         self.status_labels[device_id].config(text="Running", foreground="green")
-        # Tạo thread với callback cập nhật status khi dừng
-        t = MonitorThread(device_id, name, on_stop=self._on_thread_stop)
+        t = MonitorThread(
+            device_id, name,
+            auto_dungeon=self.auto_dungeon_vars[device_id].get(),
+            auto_ruby=self.auto_ruby_vars[device_id].get(),
+            on_stop=self._on_thread_stop
+        )
         t.daemon = True
         t.start()
         self.threads[device_id] = t
-        print(f"Đã start {name}")
 
     def stop_monitor(self, device_id):
         t = self.threads.get(device_id)
         if t and t.is_alive():
             t.stop()
-            print(f"Đang stop {device_id}...")
-        else:
-            print(f"{device_id} không đang chạy.")
 
     def start_all(self):
-        for device_id in list(self.status_labels.keys()):
-            self.start_monitor(device_id)
+        for did in list(self.auto_dungeon_vars): self.start_monitor(did)
 
     def stop_all(self):
-        for device_id in list(self.threads.keys()):
-            self.stop_monitor(device_id)
+        for did in list(self.threads): self.stop_monitor(did)
 
     def _on_thread_stop(self, device_id):
-        # Callback khi thread kết thúc
         if device_id in self.status_labels:
             self.status_labels[device_id].config(text="Stopped", foreground="red")
-        print(f"Đã stop {device_id}")
 
     def on_close(self):
         for t in self.threads.values():
-            if t.is_alive():
-                t.stop()
-                t.join()
+            if t.is_alive(): t.stop(); t.join()
         self.destroy()
 
 if __name__ == "__main__":
-    app = VMManagerApp()
-    app.mainloop()
+    VMManagerApp().mainloop()
