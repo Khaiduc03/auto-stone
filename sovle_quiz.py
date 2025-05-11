@@ -5,7 +5,7 @@ import random
 import math
 import time  # Thư viện đo thời gian
 import uiautomator2 as u2
-
+from uiautomator2 import Device
 from detect_utils import detect_template
 from character_utils import detect_characters_group_bbox
 from constants import (
@@ -164,19 +164,28 @@ def uiauto_tap(x: int, y: int, radius: int = 15, device_ip: str = "127.0.0.1") -
     time.sleep(random.uniform(0.2, 0.3))
     u2.connect(device_ip).click(rx, ry)
 
+def uiauto_tap2(x: int, y: int, radius: int = 15, u2: Device = None) -> None:
+    angle = random.uniform(0, 2 * math.pi)
+    r = radius * math.sqrt(random.uniform(0, 1))
+    dx = int(r * math.cos(angle))
+    dy = int(r * math.sin(angle))
+    rx, ry = x + dx, y + dy
+    time.sleep(random.uniform(0.2, 0.3))
+    u2.click(rx, ry)
 
-def tap_capcha(device_id: Optional[str] = None, full_img: np.ndarray = None) -> None:
+
+def tap_capcha(device_id: Optional[str] = None, full_img: np.ndarray = None, u2: Device = None) -> None:
     idx = solve_capchav2(full_img)
     print('Người dùng tìm thấy là:', idx)
     match idx:
         case 1:
-            uiauto_tap(CAPTCHA_1, CAPTCHA_Y, 10, device_ip=device_id)
+            uiauto_tap2(CAPTCHA_1, CAPTCHA_Y, 10, u2)
         case 2:
-            uiauto_tap(CAPTCHA_2, CAPTCHA_Y, 10, device_ip=device_id)
+            uiauto_tap2(CAPTCHA_2, CAPTCHA_Y, 10, u2)
         case 3:
-            uiauto_tap(CAPTCHA_3, CAPTCHA_Y, 10, device_ip=device_id)
+            uiauto_tap2(CAPTCHA_3, CAPTCHA_Y, 10,u2)
         case 4:
-            uiauto_tap(CAPTCHA_4, CAPTCHA_Y, 10, device_ip=device_id)
+            uiauto_tap2(CAPTCHA_4, CAPTCHA_Y, 10, u2)
 
 
 def is_captcha_present(image: np.ndarray) -> bool:
@@ -195,11 +204,11 @@ def is_captcha_present(image: np.ndarray) -> bool:
         return False
 
 
-def main_resolve_quiz(device_id: Optional[str] = None, screen: np.ndarray = None, name: Optional[str] = None) -> None:
+def main_resolve_quiz(device_id: Optional[str] = None, screen: np.ndarray = None, name: Optional[str] = None, u2: Device= None) -> None:
     try:
         if is_captcha_present(screen):
             print(f"[{device_id}] ✓ Đã phát hiện CAPTCHA")
-            tap_capcha(device_id, full_img=screen)
+            tap_capcha(device_id, full_img=screen, u2=u2)
         else:
             print(f"[{device_id}-{name}] ✓ Không phát hiện CAPTCHA")
     except Exception as e:

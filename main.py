@@ -6,7 +6,8 @@ from tkinter import ttk, messagebox
 import csv
 from io import StringIO
 
-from adb_utils import adb_screencap_adb, get_connected_devices, adb_screencap
+import uiautomator2 as u2
+from adb_utils import adb_screencap_adb, get_connected_devices
 from auto_ruby import auto_click_ruby_box, auto_enter_dungeon
 from sovle_quiz import main_resolve_quiz
 import gc
@@ -24,7 +25,7 @@ def extract_port(device_id):
     except ValueError:
         return None
 
-# --- Lấy map index → name ---
+# --- Lấy map index → name trên LDPlayer ---
 def list_ldplayer_instances(ldconsole_path=r"C:\LDPlayer\LDPlayer4\ldconsole.exe"):
     try:
         output = subprocess.check_output(
@@ -39,10 +40,8 @@ def list_ldplayer_instances(ldconsole_path=r"C:\LDPlayer\LDPlayer4\ldconsole.exe
             instances[int(row[0])] = row[1].strip()
     return instances
 
-# Build map ngay khi import
 _LDPLAYER_MAP = list_ldplayer_instances()
 
-# --- Hàm lấy tên từ device_id ---
 def get_ldplayer_instance_name(device_id):
     port = extract_port(device_id)
     if port is None:
@@ -50,7 +49,7 @@ def get_ldplayer_instance_name(device_id):
     idx = (port - 5554) // 2
     return _LDPLAYER_MAP.get(idx, device_id)
 
-# --- Thread giám sát ---
+# --- Thread giám sát mỗi VM ---
 class MonitorThread(threading.Thread):
     def __init__(
         self,
@@ -73,7 +72,13 @@ class MonitorThread(threading.Thread):
         self._ruby_counter = 3
         self.on_stop = on_stop
 
-    # setter cho các tính năng
+        # ---- TẠO KẾT NỐI U2 ----
+        try:
+            self.u2 = u2.connect_usb(self.device_id)
+        except Exception:
+            self.u2 = u2.connect(self.device_id)
+        print(f"[{self.name}] u2 connected: {self.u2.device_info}")
+
     def set_auto_dungeon(self, enabled: bool):
         self.auto_dungeon = enabled
         print(f"[{self.name}] Auto Dungeon set to {enabled}")
@@ -88,24 +93,25 @@ class MonitorThread(threading.Thread):
         print(f"[Giám sát] Bắt đầu theo dõi {self.name} ({self.device_id})")
         while not self._stop_event.is_set():
             try:
+                # vẫn chụp bằng adb_screencap_adb
                 screen = adb_screencap_adb(device_id=self.device_id)
+
                 if self.auto_dungeon:
-                    auto_enter_dungeon(self.device_id, screen)
+                    # truyền thêm self.u2 ở cuối
+                    auto_enter_dungeon(self.device_id, screen, self.u2)
                 if self.auto_captcha:
-                    # Giải captcha bằng main_resolve_quiz
-                    main_resolve_quiz(self.device_id, screen, self.name)
+                    main_resolve_quiz(self.device_id, screen, self.name, self.u2)
                 if self.auto_ruby:
                     if self._ruby_counter >= 3:
-                        auto_click_ruby_box(self.device_id)
+                        auto_click_ruby_box(self.device_id, self.u2)
                         self._ruby_counter = 0
                     else:
                         self._ruby_counter += 1
+
             except Exception as e:
                 print(f"[{self.name}] Lỗi: {e}")
-            finally:
-                del screen
-                gc.collect()
             time.sleep(self.interval)
+
         print(f"[Giám sát] Dừng theo dõi {self.name}")
         if self.on_stop:
             self.on_stop(self.device_id)
@@ -120,7 +126,6 @@ class VMManagerApp(tk.Tk):
         self.title("Virtual Machine Manager")
         self.threads = {}
         self.status_labels = {}
-        # biến control cho từng VM
         self.auto_dungeon_vars = {}
         self.auto_ruby_vars = {}
         self.auto_captcha_vars = {}
@@ -141,24 +146,20 @@ class VMManagerApp(tk.Tk):
             frame = ttk.Frame(self, padding=5)
             frame.grid(row=idx, column=0, sticky="w")
 
-            # khởi tạo biến control
             self.auto_dungeon_vars[device_id] = tk.BooleanVar(value=True)
-            self.auto_ruby_vars[device_id] = tk.BooleanVar(value=True)
-            self.auto_captcha_vars[device_id] = tk.BooleanVar(value=True)
+            self.auto_ruby_vars[device_id]   = tk.BooleanVar(value=True)
+            self.auto_captcha_vars[device_id]= tk.BooleanVar(value=True)
 
             ttk.Label(frame, text=f"{idx} - {name}", width=25).pack(side="left")
-            ttk.Checkbutton(
-                frame, text="Dungeon",
+            ttk.Checkbutton(frame, text="Dungeon",
                 variable=self.auto_dungeon_vars[device_id],
                 command=lambda d=device_id: self._toggle_dungeon(d)
             ).pack(side="left", padx=2)
-            ttk.Checkbutton(
-                frame, text="Ruby",
+            ttk.Checkbutton(frame, text="Ruby",
                 variable=self.auto_ruby_vars[device_id],
                 command=lambda d=device_id: self._toggle_ruby(d)
             ).pack(side="left", padx=2)
-            ttk.Checkbutton(
-                frame, text="Captcha",
+            ttk.Checkbutton(frame, text="Captcha",
                 variable=self.auto_captcha_vars[device_id],
                 command=lambda d=device_id: self._toggle_captcha(d)
             ).pack(side="left", padx=2)
@@ -172,28 +173,28 @@ class VMManagerApp(tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
-    # callback toggle
     def _toggle_dungeon(self, device_id):
-        var = self.auto_dungeon_vars[device_id].get()
         t = self.threads.get(device_id)
-        if t and t.is_alive(): t.set_auto_dungeon(var)
+        if t and t.is_alive():
+            t.set_auto_dungeon(self.auto_dungeon_vars[device_id].get())
+
     def _toggle_ruby(self, device_id):
-        var = self.auto_ruby_vars[device_id].get()
         t = self.threads.get(device_id)
-        if t and t.is_alive(): t.set_auto_ruby(var)
+        if t and t.is_alive():
+            t.set_auto_ruby(self.auto_ruby_vars[device_id].get())
+
     def _toggle_captcha(self, device_id):
-        var = self.auto_captcha_vars[device_id].get()
         t = self.threads.get(device_id)
-        if t and t.is_alive(): t.set_auto_captcha(var)
+        if t and t.is_alive():
+            t.set_auto_captcha(self.auto_captcha_vars[device_id].get())
 
     def start_monitor(self, device_id):
         if device_id in self.threads and self.threads[device_id].is_alive():
             return
-        name = get_ldplayer_instance_name(device_id)
         self.status_labels[device_id].config(text="Running", foreground="green")
         t = MonitorThread(
             device_id,
-            name,
+            get_ldplayer_instance_name(device_id),
             auto_dungeon=self.auto_dungeon_vars[device_id].get(),
             auto_ruby=self.auto_ruby_vars[device_id].get(),
             auto_captcha=self.auto_captcha_vars[device_id].get(),
@@ -205,19 +206,16 @@ class VMManagerApp(tk.Tk):
 
     def stop_monitor(self, device_id):
         t = self.threads.get(device_id)
-        if t and t.is_alive(): t.stop()
+        if t and t.is_alive():
+            t.stop()
 
     def start_all(self):
-        # Mỗi device sẽ được start cách nhau 7000ms = 7s
         for idx, device_id in enumerate(self.auto_dungeon_vars):
-            delay_ms = idx * 7000
-            # dùng default arg để tránh vấn đề closure
-            self.after(delay_ms, lambda d=device_id: self.start_monitor(d))
+            self.after(idx * 7000, lambda d=device_id: self.start_monitor(d))
 
-
-            
     def stop_all(self):
-        for did in list(self.threads):      self.stop_monitor(did)
+        for did in list(self.threads):
+            self.stop_monitor(did)
 
     def _on_thread_stop(self, device_id):
         if device_id in self.status_labels:
@@ -225,8 +223,11 @@ class VMManagerApp(tk.Tk):
 
     def on_close(self):
         for t in self.threads.values():
-            if t.is_alive(): t.stop(); t.join()
+            if t.is_alive():
+                t.stop()
+                t.join()
         self.destroy()
+
 
 if __name__ == "__main__":
     VMManagerApp().mainloop()
