@@ -6,9 +6,10 @@ from tkinter import ttk, messagebox
 import csv
 from io import StringIO
 
-from adb_utils import get_connected_devices, adb_screencap
+from adb_utils import adb_screencap_adb, get_connected_devices, adb_screencap
 from auto_ruby import auto_click_ruby_box, auto_enter_dungeon
 from sovle_quiz import main_resolve_quiz
+import gc
 
 # --- Helper để parse port từ device_id ---
 def extract_port(device_id):
@@ -87,7 +88,7 @@ class MonitorThread(threading.Thread):
         print(f"[Giám sát] Bắt đầu theo dõi {self.name} ({self.device_id})")
         while not self._stop_event.is_set():
             try:
-                screen = adb_screencap(device_id=self.device_id)
+                screen = adb_screencap_adb(device_id=self.device_id)
                 if self.auto_dungeon:
                     auto_enter_dungeon(self.device_id, screen)
                 if self.auto_captcha:
@@ -101,6 +102,9 @@ class MonitorThread(threading.Thread):
                         self._ruby_counter += 1
             except Exception as e:
                 print(f"[{self.name}] Lỗi: {e}")
+            finally:
+                del screen
+                gc.collect()
             time.sleep(self.interval)
         print(f"[Giám sát] Dừng theo dõi {self.name}")
         if self.on_stop:
@@ -142,7 +146,7 @@ class VMManagerApp(tk.Tk):
             self.auto_ruby_vars[device_id] = tk.BooleanVar(value=True)
             self.auto_captcha_vars[device_id] = tk.BooleanVar(value=True)
 
-            ttk.Label(frame, text=name, width=25).pack(side="left")
+            ttk.Label(frame, text=f"{idx} - {name}", width=25).pack(side="left")
             ttk.Checkbutton(
                 frame, text="Dungeon",
                 variable=self.auto_dungeon_vars[device_id],
@@ -204,7 +208,14 @@ class VMManagerApp(tk.Tk):
         if t and t.is_alive(): t.stop()
 
     def start_all(self):
-        for did in list(self.auto_dungeon_vars): self.start_monitor(did)
+        # Mỗi device sẽ được start cách nhau 7000ms = 7s
+        for idx, device_id in enumerate(self.auto_dungeon_vars):
+            delay_ms = idx * 7000
+            # dùng default arg để tránh vấn đề closure
+            self.after(delay_ms, lambda d=device_id: self.start_monitor(d))
+
+
+            
     def stop_all(self):
         for did in list(self.threads):      self.stop_monitor(did)
 

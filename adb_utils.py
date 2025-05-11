@@ -15,6 +15,26 @@ def adb_screencap(device_id=None):
         print("Lỗi giải mã ảnh uiautomator2", file=sys.stderr)
     return img
 
+def adb_screencap_adb(device_id: str | None = None) -> np.ndarray | None:
+    """
+    Chụp màn hình qua ADB shell (exec-out screencap -p) thuần túy,
+    không dùng uiautomator2, trả về OpenCV BGR ndarray.
+    """
+    cmd = ["adb"]
+    if device_id:
+        cmd += ["-s", device_id]
+    cmd += ["exec-out", "screencap -p"]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    data, err = proc.communicate()
+    if proc.returncode != 0:
+        print(f"ADB screencap error: {err.decode().strip()}", file=sys.stderr)
+        return None
+    arr = np.frombuffer(data, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        print("Không decode được dữ liệu ảnh từ adb.", file=sys.stderr)
+    return img
+
 def get_connected_devices():
     result = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     lines = result.stdout.strip().split("\n")[1:]  # bỏ dòng đầu "List of devices attached"

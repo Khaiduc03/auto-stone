@@ -1,6 +1,6 @@
 
 import time
-from adb_utils import adb_screencap
+from adb_utils import adb_screencap, adb_screencap_adb
 from sovle_quiz import uiauto_tap
 from detect_utils import detect_template
 import cv2
@@ -18,7 +18,7 @@ def auto_click_ruby_box(device_id=None ):
     uiauto_tap(32, 607,2, device_id)
     print("Chạm vào vị trí ruby get reward")
     time.sleep(0.5)
-    img = adb_screencap(device_id=device_id)
+    img = adb_screencap_adb(device_id=device_id)
    
     try:
         _, result = detect_template(img, RUBY_PNG, RUBY_ROI, 0.6,-3,0.5,SCALE_MAX,20,25,None, False )
