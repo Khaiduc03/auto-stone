@@ -1,12 +1,9 @@
 
 import time
-from adb_utils import adb_screencap, adb_screencap_adb
-from sovle_quiz import uiauto_tap, uiauto_tap2
+from adb_utils import adb_screencap_adb
+from sovle_quiz import uiauto_tap2
 from detect_utils import detect_template
-import cv2
-import numpy as np
 from constants import (
-    SEARCH_USER_ROI,
     RUBY_ROI,
     SCALE_MAX,
     RUBY_PNG,

@@ -26,12 +26,48 @@ def extract_port(device_id):
         return None
 
 # --- Lấy map index → name trên LDPlayer ---
+import os
+import glob
+
 def list_ldplayer_instances(ldconsole_path=r"C:\LDPlayer\LDPlayer4\ldconsole.exe"):
+    # Nếu không thấy file ldconsole_path, thử tìm ở các vị trí phổ biến
+    if not os.path.isfile(ldconsole_path):
+        # Thử các đường dẫn phổ biến cho LDPlayer 3, 4, 9
+        possible_dirs = [
+            r"C:\LDPlayer\LDPlayer4",
+            r"C:\LDPlayer\LDPlayer3",
+            r"C:\LDPlayer\LDPlayer9",
+            r"C:\Program Files\LDPlayer\LDPlayer4",
+            r"C:\Program Files\LDPlayer\LDPlayer3",
+            r"C:\Program Files\LDPlayer\LDPlayer9",
+        ]
+        found = False
+        for d in possible_dirs:
+            exe_path = os.path.join(d, "ldconsole.exe")
+            if os.path.isfile(exe_path):
+                ldconsole_path = exe_path
+                found = True
+                break
+        if not found:
+            # Thử tìm mọi nơi trong C:\LDPlayer* hoặc C:\Program Files\LDPlayer*
+            search_patterns = [
+                r"C:\LDPlayer*\ldconsole.exe",
+                r"C:\Program Files\LDPlayer*\ldconsole.exe"
+            ]
+            matches = []
+            for pat in search_patterns:
+                matches.extend(glob.glob(pat))
+            if matches:
+                ldconsole_path = matches[0]
+            else:
+                # Không tìm thấy, trả về dict rỗng
+                return {}
     try:
         output = subprocess.check_output(
             [ldconsole_path, "list2"], encoding="gbk", errors="ignore"
         )
-    except subprocess.CalledProcessError:
+    except Exception:
+        # Nếu có lỗi (file không chạy được, v.v.), trả về dict rỗng
         return {}
     reader = csv.reader(StringIO(output))
     instances = {}
@@ -40,14 +76,16 @@ def list_ldplayer_instances(ldconsole_path=r"C:\LDPlayer\LDPlayer4\ldconsole.exe
             instances[int(row[0])] = row[1].strip()
     return instances
 
-_LDPLAYER_MAP = list_ldplayer_instances()
+# _LDPLAYER_MAP = list_ldplayer_instances()
 
 def get_ldplayer_instance_name(device_id):
+    _LDPLAYER_MAP = list_ldplayer_instances()
     port = extract_port(device_id)
     if port is None:
         return device_id
     idx = (port - 5554) // 2
     return _LDPLAYER_MAP.get(idx, device_id)
+    # return device_id
 
 # --- Thread giám sát mỗi VM ---
 class MonitorThread(threading.Thread):

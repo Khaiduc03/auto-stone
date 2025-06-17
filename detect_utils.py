@@ -107,7 +107,7 @@ def multi_scale_template_match(
     scale_max: float = 10.0,
     coarse_steps: int = 15,
     fine_steps: int = 20,
-    n_workers: int = None,
+    n_workers: int = 1,
 ) -> Dict[str, Any]:
     """
     Tìm template trên gray_roi theo scale, dùng tìm kiếm 2 giai đoạn và parallel.
@@ -154,3 +154,7 @@ def multi_scale_template_match(
                 best.update(val=best_val, loc=loc, wh=wh, scale=s)
 
     return best
+
+
+
+

@@ -24,11 +24,21 @@ def adb_screencap_adb(device_id: str | None = None) -> np.ndarray | None:
     if device_id:
         cmd += ["-s", device_id]
     cmd += ["exec-out", "screencap -p"]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    data, err = proc.communicate()
-    if proc.returncode != 0:
-        print(f"ADB screencap error: {err.decode().strip()}", file=sys.stderr)
+
+    try:
+        data = subprocess.check_output(cmd)
+    except subprocess.CalledProcessError as e:
+        err = e.stderr.decode().strip() if e.stderr else str(e)
+        print(f"ADB screencap error: {err}", file=sys.stderr)
         return None
+    except OSError as e:
+        print(f"Lỗi khi chạy adb: {e}", file=sys.stderr)
+        return None
+
+    if not data:
+        print("Không có dữ liệu ảnh từ adb.", file=sys.stderr)
+        return None
+
     arr = np.frombuffer(data, dtype=np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None:
