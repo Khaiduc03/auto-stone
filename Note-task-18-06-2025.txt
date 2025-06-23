@@ -1,5 +1,0 @@
-Các task đã làm trong ngày 18-06-2025 của Khải:
-- Build đặt nhiều chuyến - Đã giao test
-- Đổi lại cơ chế chuyến nhỡ -  Đã giao test
-- Fix lỗi noti trong app tài xế chưa show trên ios
-- Cấu hình động show bật tắt cài đặt

@@ -8,7 +8,7 @@ def resource_path(rel_path: str) -> str:
     """
     if getattr(sys, 'frozen', False):
         # PyInstaller onefile sẽ giải nén vào _MEIPASS
-        base = sys._MEIPASS
+        base = getattr(sys, '_MEIPASS', os.path.abspath("."))
     else:
         # bình thường: chạy script gốc
         base = os.path.abspath(".")
@@ -22,6 +22,7 @@ CAPTCHA_ROI = (80, 215, 400, 60)  # Vùng quan tâm cho captcha
 SEARCH_USER_ROI = (220,505,130, 95)
 RUBY_ROI = (10, 525, 290, 250)  # Vùng quan tâm cho ruby
 DUNGEON_ROI = (10,385, 62, 215)  # Vùng quan tâm cho dungeon
+STONE_ROI= (34, 1780, 910, 460)  # Vùng quan tâm cho stone, sẽ được cập nhật sau khi tìm thấy stone
 THRESHOLD = 0.6  # Ngưỡng matchTemplate
 HIST_THRESHOLD = 0.01  # Ngưỡng histogram correlation
 SCALE_MIN = 1.0  # Hệ số scale nhỏ nhất
@@ -38,6 +39,9 @@ CAPTCHA_2 =209
 CAPTCHA_3 =324
 CAPTCHA_4 =445
 CAPTCHA_Y = 704
+
+
+
 
 
 SEARCH_USER_IMAGES = [
