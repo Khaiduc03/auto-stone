@@ -1,8 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
 from typing import Tuple
 
+import cv2
+import numpy as np
+
+from adb_utils import adb_screencap_adb
+
+
+def crop_screen_by_roi( roi: Tuple[int, int, int, int]) -> np.ndarray:
+    """
+    Crop a screenshot numpy array according to ROI (x, y, w, h).
+
+    Args:
+        screen: full-screen image as a numpy array (H x W x C).
+        roi: tuple (x, y, width, height), with (0,0) at top-left.
+
+    Returns:
+        Cropped image as numpy array.
+    """
+    #get screen by adb
+    screen = adb_screencap_adb()
+    if screen is None:
+        raise ValueError("Failed to capture screen")
+
+    x, y, w, h = roi
+    return screen[y:y+h, x:x+w]
 
 class GridROI:
     """
@@ -73,8 +98,8 @@ class GridROI:
 if __name__ == "__main__":
     # Bạn có 8 cột và 4 hàng; ô nhỏ 112×111; start=(39,1790)
     grid = GridROI(
-        start=(39, 1790),
-        cell_size=(112, 111),
+        start=(40, 1790),
+        cell_size=(111, 111),
         grid_dim=(8, 4),          # 8 cột, 4 hàng
         gap_x=1,                  # gap ngang 1px
         gap_even_to_odd=2,        # từ hàng chẵn→lẻ: +2px
@@ -89,4 +114,11 @@ if __name__ == "__main__":
     # In thử toàn bộ lưới
     for r in range(1, grid.rows + 1):
         for c in range(1, grid.cols + 1):
-            print(f"({c},{r}):", grid.get_cell(c, r))
+            roi = grid.get_cell(c, r)
+            cropped = crop_screen_by_roi(roi=roi)
+            out_file = f"test_stone/roi_capture_r{r}_c{c}.png"
+            if cv2.imwrite(out_file, cropped):
+                print(f"Saved ROI {roi} to {out_file}")
+            else:
+                print(f"Failed to save ROI {roi} to {out_file}", file=sys.stderr)
+

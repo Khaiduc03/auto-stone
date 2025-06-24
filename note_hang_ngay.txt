@@ -1,0 +1,3 @@
+Note công việc của Khải ngày 23/06/2025
+- Test và debug reconnect socket
+- Hỗ trợ qc đi lại các case và theo dõi reconnnect socket
